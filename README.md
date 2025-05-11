@@ -1,16 +1,1 @@
-# dtu_connect_2
-
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+DTU Connect is a Flutter-based mobile application designed to simplify student management and communication within Delhi Technological University (DTU). The app offers features for students and faculty to manage academic information, share announcements, and collaborate effectively.~~~~
