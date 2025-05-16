@@ -88,7 +88,7 @@ class _AttendanceState extends State<Attendance> {
                   attendancePercent: percent,
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

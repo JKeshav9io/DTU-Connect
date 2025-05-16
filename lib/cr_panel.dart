@@ -3,7 +3,7 @@ import 'package:dtu_connect_2/mark_attendance.dart';
 import 'package:dtu_connect_2/notify_class.dart';
 import 'package:dtu_connect_2/manage_assignment.dart';
 import 'package:dtu_connect_2/update_marks.dart';
-import 'package:dtu_connect_2/assignment.dart';
+
 
 void main() {
   runApp(const MyApp());

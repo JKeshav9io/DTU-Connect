@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dtu_connect_2/fecthing_data.dart';
 import 'package:dtu_connect_2/alerts.dart';
 import 'package:dtu_connect_2/assignment.dart';
 import 'package:dtu_connect_2/attendance.dart';
@@ -6,6 +7,9 @@ import 'package:dtu_connect_2/events_screen.dart';
 import 'package:dtu_connect_2/profile.dart';
 import 'package:dtu_connect_2/academic_performance.dart';
 import 'cr_panel.dart';
+
+Map<String, dynamic>? studentData;
+
 void main() {
   runApp(const MyApp());
 }
@@ -15,10 +19,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Dashboard Demo',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: const Dashboard(),
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Dashboard(),
     );
   }
 }
@@ -27,20 +30,45 @@ class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
 
   @override
-  _DashboardState createState() => _DashboardState();
+  State<Dashboard> createState() => _DashboardState();
 }
 
 class _DashboardState extends State<Dashboard> {
+  Map<String, dynamic>? studentData;
   int _selectedIndex = 0;
+  bool isLoading = true;
 
-  static const List<Widget> _screens = [
-    HomeScreen(),
-    AcademicPerformanceScreen(),
-    EventsScreen(),
-    AlertsScreen(),
-    ProfilePage(),
+  @override
+  void initState() {
+    super.initState();
+    loadStudentData();
+  }
 
-  ];
+  Future<void> loadStudentData() async {
+    final repo = StudentRepository();
+    final data = await repo.fetchStudentData();
+    if (data != null) {
+      setState(() {
+        studentData = data;
+        isLoading = false;
+      });
+    }
+  }
+
+  List<Widget> get _screens {
+    if (studentData == null) {
+      return [
+        const Center(child: CircularProgressIndicator()),
+      ];
+    }
+    return [
+      const HomeScreen(),
+      const AcademicPerformanceScreen(),
+      const EventsScreen(),
+      const AlertsScreen(),
+      ProfilePage(studentData: studentData!),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -69,7 +97,7 @@ class _DashboardState extends State<Dashboard> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const ProfilePage()),
+              MaterialPageRoute(builder: (context) => ProfilePage(studentData: studentData!)),
             );
           },
         ),
@@ -104,7 +132,7 @@ class _DashboardState extends State<Dashboard> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home',),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.school), label: 'Academics'),
           BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
           BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Alerts'),
@@ -153,23 +181,14 @@ class HomeScreen extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             children: [
               _quickActionButton(Icons.check, "Attendance", () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const Attendance()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const Attendance()));
               }),
               _quickActionButton(Icons.assignment, "Assignment", () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AssignmentScreen()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const AssignmentScreen()));
               }),
               _quickActionButton(Icons.schedule, "Schedule", () {}),
               _quickActionButton(Icons.event, "Events", () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const EventsScreen()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const EventsScreen()));
               }),
             ],
           ),
@@ -192,30 +211,7 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class PlaceholderScreen extends StatelessWidget {
-  final String title;
-  const PlaceholderScreen(this.title, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Text(
-          '$title Page',
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
-}
-
-Widget _infoCard({
-  required String title,
-  required String value,
-  required double progress,
-  required Color valueColor,
-}) {
+Widget _infoCard({required String title, required String value, required double progress, required Color valueColor}) {
   return Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
@@ -246,10 +242,7 @@ Widget _infoCard({
   );
 }
 
-Widget _nextClassCard({
-  required String time,
-  required String subject,
-}) {
+Widget _nextClassCard({required String time, required String subject}) {
   return Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
@@ -308,11 +301,7 @@ Widget _assignmentCard({required String title, required String due}) {
   );
 }
 
-Widget _eventCard({
-  required String imageUrl,
-  required String title,
-  required String date,
-}) {
+Widget _eventCard({required String imageUrl, required String title, required String date}) {
   return Card(
     elevation: 2,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

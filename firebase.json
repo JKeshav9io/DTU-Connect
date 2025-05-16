@@ -1,0 +1,1 @@
+{"flutter":{"platforms":{"android":{"default":{"projectId":"dtu-connect-2","appId":"1:1001974046169:android:d6bc0c17f270f8b1e28dc8","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"dtu-connect-2","configurations":{"android":"1:1001974046169:android:d6bc0c17f270f8b1e28dc8","ios":"1:1001974046169:ios:65935296eacee944e28dc8"}}}}}}

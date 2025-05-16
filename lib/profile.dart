@@ -1,34 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'signin_page.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  final Map<String, dynamic> studentData;
+  const ProfilePage({Key? key, required this.studentData}) : super(key: key);
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  late final Map<String, dynamic> studentInfo;
+  late final List<dynamic> attendanceData;
+  late final List<dynamic> performanceList;
+  late final Map<String, dynamic> latestPerformance;
+
   bool isDarkModeEnabled = false;
   bool isNotificationsEnabled = true;
 
-  // Hardcoded user data
-  final Map<String, dynamic> userData = {
-    'name': 'Keshav Jha',
-    'roll_no': 'MCE1021',
-    'imageURL': 'Assets/keshav.jpg',
-    'attendance': {'Overall': {'overall_percent': '85%'}},
-    'cgpa': '8.7',
-    'semester': '5',
-    'branch': 'MCE',
-    'course': 'B.Tech',
-    'year': '3rd Year',
-    'phone': '+91 9876543210',
-    'email': 'keshav.jha@dtuconnect.com',
-  };
+  @override
+  void initState() {
+    super.initState();
+    studentInfo       = widget.studentData;
+    attendanceData    = studentInfo['attendance'] as List<dynamic>? ?? [];
+    performanceList   = studentInfo['performance'] as List<dynamic>? ?? [];
+    latestPerformance = performanceList.isNotEmpty
+        ? performanceList.last as Map<String, dynamic>
+        : <String, dynamic>{};
+  }
 
-  void _logout() {
-    // Stub logout: navigate back
-    Navigator.pop(context);
+  double calculateAttendancePercentage() {
+    int conducted = attendanceData.where((d) => d['held'] == 'conducted').length;
+    int present   = attendanceData.where((d) => d['status'] == 'present').length;
+    return conducted == 0 ? 0.0 : present / conducted * 100;
+  }
+
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Logged out successfully!"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Logout failed!"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    });
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => SigninPage()),
+    );
   }
 
   @override
@@ -47,47 +76,53 @@ class _ProfilePageState extends State<ProfilePage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             ClipOval(
-              child: Image.asset(
-                userData['imageURL'],
+              child: studentInfo["photoURL"] != null
+                  ? Image.asset(
+                studentInfo["photoURL"],
                 width: 100,
                 height: 100,
                 fit: BoxFit.cover,
+              )
+                  : Container(
+                width: 100,
+                height: 100,
+                color: Colors.grey[300],
+                child: const Icon(Icons.person, size: 50),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              userData['name'],
+              studentInfo["name"] ?? 'NA',
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
-              userData['roll_no'],
+              studentInfo["rollNo"] ?? 'NA',
               style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 16),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _infoCard("Semester", userData['semester']),
-                const SizedBox(width: 8),
-                _infoCard("Attendance", userData['attendance']['Overall']['overall_percent']),
-                const SizedBox(width: 8),
-                _infoCard("CGPA", userData['cgpa']),
+                _infoCard("Semester", studentInfo["semester"]?.toString() ?? 'NA'),
+                _infoCard("Attendance", "${calculateAttendancePercentage().toStringAsFixed(2)}%"),
+                _infoCard("CGPA", latestPerformance["cgpa"]?.toString() ?? 'NA'),
               ],
             ),
             const SizedBox(height: 16),
             _buildProfileCard(
-              rollNo: userData['roll_no'],
-              branch: userData['branch'],
-              course: userData['course'],
-              year: userData['year'],
-              phone: userData['phone'],
-              email: userData['email'],
+              rollNo:  studentInfo["rollNo"]    ?? 'NA',
+              branch:  studentInfo["branchName"] ?? 'NA',
+              course:  studentInfo["course"]     ?? 'NA',
+              year:    studentInfo["year"]?.toString() ?? 'NA',
+              phone:   studentInfo["contact"]    ?? 'NA',
+              email:   studentInfo["email"]      ?? 'NA',
             ),
             const SizedBox(height: 16),
             _Settings(
-              isDarkMode: isDarkModeEnabled,
-              isNotifications: isNotificationsEnabled,
-              onDarkModeChanged: (val) => setState(() => isDarkModeEnabled = val),
+              isDarkMode:       isDarkModeEnabled,
+              isNotifications:  isNotificationsEnabled,
+              onDarkModeChanged:      (val) => setState(() => isDarkModeEnabled = val),
               onNotificationsChanged: (val) => setState(() => isNotificationsEnabled = val),
               onLogout: _logout,
             ),
@@ -97,7 +132,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Helper widget for small info cards
   Widget _infoCard(String title, String value) {
     return Expanded(
       child: Card(
@@ -107,9 +141,15 @@ class _ProfilePageState extends State<ProfilePage> {
           padding: const EdgeInsets.all(12.0),
           child: Column(
             children: [
-              Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+              Text(title,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700])),
               const SizedBox(height: 4),
-              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -117,7 +157,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Profile details card
   Widget _buildProfileCard({
     required String rollNo,
     required String branch,
@@ -134,7 +173,8 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Personal Information", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text("Personal Information",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             _buildInfoRow("Roll No:", rollNo),
             _buildInfoRow("Branch:", branch),
@@ -148,22 +188,26 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Row widget for label and value
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[700])),
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[700])),
+          Text(value,
+              style:
+              const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 }
 
-// Settings section as separate widget
 class _Settings extends StatelessWidget {
   final bool isDarkMode;
   final bool isNotifications;
@@ -188,26 +232,42 @@ class _Settings extends StatelessWidget {
         children: [
           ListTile(
             leading: const Icon(Icons.edit_rounded, color: Colors.blueAccent),
-            title: const Text("Edit Details", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            title: const Text("Edit Details",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+            trailing: const Icon(Icons.arrow_forward_ios,
+                size: 16, color: Colors.grey),
             onTap: () {},
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.dark_mode_outlined, color: Colors.deepPurple),
-            title: const Text("Dark Mode", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-            trailing: Switch(value: isDarkMode, onChanged: onDarkModeChanged, activeColor: Colors.deepPurple),
+            leading:
+            const Icon(Icons.dark_mode_outlined, color: Colors.deepPurple),
+            title: const Text("Dark Mode",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+            trailing: Switch(
+                value: isDarkMode,
+                onChanged: onDarkModeChanged,
+                activeColor: Colors.deepPurple),
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.notifications_active, color: Colors.green),
-            title: const Text("Notifications", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-            trailing: Switch(value: isNotifications, onChanged: onNotificationsChanged, activeColor: Colors.green),
+            leading:
+            const Icon(Icons.notifications_active, color: Colors.green),
+            title: const Text("Notifications",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+            trailing: Switch(
+                value: isNotifications,
+                onChanged: onNotificationsChanged,
+                activeColor: Colors.green),
           ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.redAccent),
-            title: const Text("Logout", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.redAccent)),
+            title: const Text("Logout",
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.redAccent)),
             onTap: onLogout,
           ),
         ],

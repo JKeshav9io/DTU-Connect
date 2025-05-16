@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:dtu_connect_2/auth_wrapper.dart';
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -49,9 +48,4 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-void main() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: SplashScreen(),
-  ));
-}
+

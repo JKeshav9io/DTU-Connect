@@ -1,3 +1,4 @@
+import 'package:dtu_connect_2/add_assignment.dart';
 import 'package:flutter/material.dart';
 
 class ManageAssignment extends StatefulWidget {
@@ -40,7 +41,7 @@ class _ManageAssignmentState extends State<ManageAssignment> {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const AddAssignmentPage(),
+                  builder: (context) => const AssignmentForm(),
                 ),
               );
             },
