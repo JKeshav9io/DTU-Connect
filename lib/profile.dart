@@ -31,6 +31,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   double calculateAttendancePercentage() {
+    print("Attendance Data: $attendanceData");
     int conducted = attendanceData.where((d) => d['held'] == 'conducted').length;
     int present   = attendanceData.where((d) => d['status'] == 'present').length;
     return conducted == 0 ? 0.0 : present / conducted * 100;

@@ -42,6 +42,7 @@ class _DashboardState extends State<Dashboard> {
   void initState() {
     super.initState();
     loadStudentData();
+
   }
 
   Future<void> loadStudentData() async {
@@ -51,6 +52,7 @@ class _DashboardState extends State<Dashboard> {
       setState(() {
         studentData = data;
         isLoading = false;
+        print(studentData);
       });
     }
   }
@@ -95,6 +97,7 @@ class _DashboardState extends State<Dashboard> {
         leading: IconButton(
           icon: const Icon(Icons.account_circle),
           onPressed: () {
+            print("Profile: $studentData");
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => ProfilePage(studentData: studentData!)),
@@ -181,7 +184,8 @@ class HomeScreen extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             children: [
               _quickActionButton(Icons.check, "Attendance", () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const Attendance()));
+                print(studentData);
+                Navigator.push(context, MaterialPageRoute(builder: (context) =>Attendance(studentData: studentData!),));
               }),
               _quickActionButton(Icons.assignment, "Assignment", () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const AssignmentScreen()));

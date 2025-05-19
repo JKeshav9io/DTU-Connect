@@ -1,59 +1,80 @@
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 
+import 'dashboard.dart';
+
 class Attendance extends StatefulWidget {
-  const Attendance({super.key});
+  final Map<String, dynamic> studentData;
+
+  const Attendance({super.key, required this.studentData});
 
   @override
   State<Attendance> createState() => _AttendanceState();
 }
 
 class _AttendanceState extends State<Attendance> {
-  late final Map<String, dynamic> studentData;
-
+  late Map<String, dynamic> _subjectWiseAttendance;
+  late Map<String, int> _overallAttendance;
+  late final List<dynamic> rawAttendance;
   @override
   void initState() {
     super.initState();
-    // Hardcoded student attendance data
-    studentData = {
-      'attendance': {
-        'Overall': {
-          'total_classes': 40,
-          'attended_classes': 32,
-        },
-        'MATH101': {
-          'subject_name': 'Mathematics I',
-          'total_classes': 12,
-          'attended': 10,
-        },
-        'PHY102': {
-          'subject_name': 'Physics II',
-          'total_classes': 10,
-          'attended': 8,
-        },
-        'CS103': {
-          'subject_name': 'Introduction to Programming',
-          'total_classes': 18,
-          'attended': 14,
-        },
-      },
-    };
+    rawAttendance = widget.studentData['attendance'] ?? [];
+    _processAttendanceData();
+    print("Student Data: ${widget.studentData["attendance"]}");
+  //   print("Attendance Data: ${widget.studentData['attendance']}");
+  //   print("Subject Wise Attendance: $_subjectWiseAttendance");
+  //   print("Overall Attendance: $_overallAttendance");
+  //
+    }
+
+  void _processAttendanceData() {
+    _subjectWiseAttendance = {};
+    _overallAttendance = {'total': 0, 'attended': 0, 'missed': 0};
+
+    // Get attendance list with null safety
+
+    print("Raw Attendance List: $rawAttendance");
+
+    for (var record in rawAttendance) {
+      // Check if the record is a Map
+      if (record is! Map<String, dynamic>) {
+        print("Skipping invalid attendance record: $record");
+        continue;
+      }
+
+      // Safely extract values with null checks
+      final String subjectCode = (record['subjectCode'] ?? 'NA').toString();
+      final String subjectName = (record['subjectName'] ?? 'NA').toString();
+      final bool isPresent = (record['status'] ?? 'absent').toString().toLowerCase() == 'present';
+
+      // Initialize subject entry if not exists
+      if (!_subjectWiseAttendance.containsKey(subjectCode)) {
+        _subjectWiseAttendance[subjectCode] = {
+          'subjectName': subjectName,
+          'total': 0,
+          'attended': 0,
+        };
+      }
+
+      // Update counts
+      _subjectWiseAttendance[subjectCode]!['total'] += 1;
+      if (isPresent) {
+        _subjectWiseAttendance[subjectCode]!['attended'] += 1;
+      }
+
+      // Update overall counts
+      _overallAttendance['total'] = _overallAttendance['total']! + 1;
+      if (isPresent) {
+        _overallAttendance['attended'] = _overallAttendance['attended']! + 1;
+      }
+    }
+    _overallAttendance['missed'] =
+        _overallAttendance['total']! - _overallAttendance['attended']!;
   }
 
   @override
   Widget build(BuildContext context) {
-    final attendanceData = studentData['attendance'] as Map<String, dynamic>?;
-
-    if (attendanceData == null) {
-      return const Scaffold(
-        body: Center(child: Text("No attendance data available")),
-      );
-    }
-
-    final overallData = attendanceData['Overall'] as Map<String, dynamic>?;
-    var subjectsData = Map<String, dynamic>.from(attendanceData);
-    subjectsData.remove('Overall');
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -67,25 +88,29 @@ class _AttendanceState extends State<Attendance> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (overallData != null)
-              OverallAttendanceCard(
-                totalClasses: overallData['total_classes'].toString(),
-                attendedClasses: overallData['attended_classes'].toString(),
-                percentage: (overallData['attended_classes'] / overallData['total_classes']).toString(),
-              ),
+            OverallAttendanceCard(
+              totalClasses: _overallAttendance['total']!.toString(),
+              attendedClasses: _overallAttendance['attended']!.toString(),
+              missedClasses: _overallAttendance['missed']!.toString(),
+            ),
             const SizedBox(height: 20),
-            ...subjectsData.entries.map((entry) {
+            if (_subjectWiseAttendance.isEmpty)
+              const Center(child: Text("No attendance records available")),
+            ..._subjectWiseAttendance.entries.map((entry) {
               final subjectCode = entry.key;
-              final subject = entry.value as Map<String, dynamic>;
-              int total = subject['total_classes'];
-              int attended = subject['attended'];
-              double percent = total > 0 ? attended / total : 0.0;
+              final data = entry.value;
+              final total = data['total'] as int;
+              final attended = data['attended'] as int;
+              final percentage = total > 0 ? attended / total : 0.0;
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10.0),
                 child: SubjectCard(
-                  subjectName: subject['subject_name'] ?? subjectCode,
+                  subjectName: data['subjectName'] ?? 'NA',
                   subjectCode: subjectCode,
-                  attendancePercent: percent,
+                  totalClasses: total.toString(),
+                  attendedClasses: attended.toString(),
+                  attendancePercent: percentage,
                 ),
               );
             }),
@@ -99,22 +124,21 @@ class _AttendanceState extends State<Attendance> {
 class OverallAttendanceCard extends StatelessWidget {
   final String totalClasses;
   final String attendedClasses;
-  final String percentage;
+  final String missedClasses;
 
   const OverallAttendanceCard({
     super.key,
     required this.totalClasses,
     required this.attendedClasses,
-    required this.percentage,
+    required this.missedClasses,
   });
 
   @override
   Widget build(BuildContext context) {
-    int total = int.tryParse(totalClasses) ?? 0;
-    int attended = int.tryParse(attendedClasses) ?? 0;
-    double percent = double.tryParse(percentage) ?? 0.0;
-    int missed = total - attended;
-
+    final total = int.parse(totalClasses);
+    final attended = int.parse(attendedClasses);
+    final missed = int.parse(missedClasses);
+    final percentage = total > 0 ? attended / total : 0.0;
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -125,9 +149,9 @@ class OverallAttendanceCard extends StatelessWidget {
             CircularPercentIndicator(
               radius: 50,
               lineWidth: 8,
-              percent: percent.clamp(0.0, 1.0),
-              center: Text("${(percent * 100).toStringAsFixed(1)}%"),
-              progressColor: percent < 0.75 ? Colors.orange : Colors.green,
+              percent: percentage.clamp(0.0, 1.0),
+              center: Text("${(percentage * 100).toStringAsFixed(1)}%"),
+              progressColor: percentage < 0.75 ? Colors.orange : Colors.green,
               backgroundColor: Colors.grey.shade300,
             ),
             const SizedBox(width: 16),
@@ -140,27 +164,9 @@ class OverallAttendanceCard extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("Total Classes:", style: TextStyle(fontWeight: FontWeight.w500)),
-                      Text("$total"),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("Attended:", style: TextStyle(fontWeight: FontWeight.w500)),
-                      Text("$attended"),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("Missed:", style: TextStyle(fontWeight: FontWeight.w500)),
-                      Text("$missed"),
-                    ],
-                  ),
+                  _buildStatRow("Total Classes:", total.toString()),
+                  _buildStatRow("Attended:", attended.toString()),
+                  _buildStatRow("Missed:", missed.toString()),
                 ],
               ),
             ),
@@ -169,22 +175,44 @@ class OverallAttendanceCard extends StatelessWidget {
       ),
     );
   }
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text(value),
+        ],
+      ),
+    );
+  }
 }
+
+
 
 class SubjectCard extends StatelessWidget {
   final String subjectName;
   final String subjectCode;
+  final String totalClasses;
+  final String attendedClasses;
   final double attendancePercent;
 
   const SubjectCard({
     super.key,
     required this.subjectName,
     required this.subjectCode,
+    required this.totalClasses,
+    required this.attendedClasses,
     required this.attendancePercent,
   });
 
   @override
   Widget build(BuildContext context) {
+    final total = int.tryParse(totalClasses) ?? 0;
+    final attended = int.tryParse(attendedClasses) ?? 0;
+    final missed = total - attended;
+
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -194,7 +222,6 @@ class SubjectCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
@@ -222,9 +249,33 @@ class SubjectCard extends StatelessWidget {
               color: attendancePercent < 0.75 ? Colors.orange : Colors.green,
               minHeight: 8,
             ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildMiniStat("Total", total),
+                _buildMiniStat("Attended", attended),
+                _buildMiniStat("Missed", missed),
+              ],
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMiniStat(String label, int value) {
+    return Column(
+      children: [
+        Text(
+          value.toString(),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+      ],
     );
   }
 }
