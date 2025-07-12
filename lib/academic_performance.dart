@@ -1,128 +1,200 @@
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AcademicPerformanceScreen extends StatefulWidget {
-  const AcademicPerformanceScreen({super.key});
+  final String studentId;
+
+  const AcademicPerformanceScreen({super.key, required this.studentId});
 
   @override
-  State<AcademicPerformanceScreen> createState() =>
-      _AcademicPerformanceScreenState();
+  State<AcademicPerformanceScreen> createState() => _AcademicPerformanceScreenState();
 }
 
 class _AcademicPerformanceScreenState extends State<AcademicPerformanceScreen> {
-  final double cgpa = 8.7;
+  int? selectedSemester;
+  List<int> availableSemesters = [];
+  Map<String, dynamic>? performanceData;
+  Map<String, dynamic> subjectsData = {};
+  Map<String, dynamic> studentData = {};
+  bool isLoading = true;
 
-  final Map<String, dynamic> hardcodedData = {
-    "CO102": {
-      "subject_name": "Programming Fundamentals",
-      "class_tests": {"test1": 9, "test2": 8},
-      "mid_sem": 23,
-      "end_sem": 40,
-      "gpa": 9.0,
-      "grade": "A"
-    },
-    "MA101": {
-      "subject_name": "Mathematics-I",
-      "class_tests": {"test1": 7, "test2": 6},
-      "mid_sem": 20,
-      "end_sem": 35,
-      "gpa": 8.0,
-      "grade": "B+"
-    },
-    "PH101": {
-      "subject_name": "Physics",
-      "class_tests": {"test1": 8, "test2": 9},
-      "mid_sem": 24,
-      "end_sem": 42,
-      "gpa": 9.5,
-      "grade": "A+"
+  @override
+  void initState() {
+    super.initState();
+    _fetchInitialData();
+  }
+
+  Future<void> _fetchInitialData() async {
+    try {
+      final studentDoc = await FirebaseFirestore.instance
+          .collection('students')
+          .doc(widget.studentId)
+          .get();
+
+      setState(() {
+        studentData = studentDoc.data() ?? {};
+        selectedSemester = studentData['semester'] as int? ?? 1;
+      });
+
+      final performanceSnapshot = await FirebaseFirestore.instance
+          .collection('students')
+          .doc(widget.studentId)
+          .collection('performance')
+          .get();
+
+      setState(() {
+        availableSemesters = performanceSnapshot.docs
+            .map((doc) => int.tryParse(doc.id) ?? 0)
+            .where((sem) => sem > 0)
+            .toList()
+          ..sort();
+      });
+
+      if (selectedSemester != null) {
+        await _loadSemesterData(selectedSemester!);
+      }
+    } catch (e) {
+      debugPrint("Error fetching initial data: $e");
+    } finally {
+      setState(() => isLoading = false);
     }
-  };
+  }
+
+  Future<void> _loadSemesterData(int semester) async {
+    setState(() => isLoading = true);
+
+    try {
+      final performanceDoc = await FirebaseFirestore.instance
+          .collection('students')
+          .doc(widget.studentId)
+          .collection('performance')
+          .doc(semester.toString())
+          .get();
+
+      final subjectsSnapshot = await FirebaseFirestore.instance
+          .collection('students')
+          .doc(widget.studentId)
+          .collection('performance')
+          .doc(semester.toString())
+          .collection('subjects')
+          .get();
+
+      debugPrint("Performance data: ${performanceDoc.data()}");
+      debugPrint("Subjects data: ${subjectsSnapshot.docs.map((e) => e.data()).toList()}");
+
+      setState(() {
+        performanceData = performanceDoc.data();
+        subjectsData = {
+          for (var doc in subjectsSnapshot.docs) doc.id: doc.data()
+        };
+      });
+    } catch (e) {
+      debugPrint("Error loading semester data: $e");
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Academic Performance"),
         centerTitle: true,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          PerformanceCard(cgpa: cgpa),
-          const SizedBox(height: 16),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: hardcodedData.length,
-            itemBuilder: (context, index) {
-              final subjectCode = hardcodedData.keys.elementAt(index);
-              final subjectData = hardcodedData[subjectCode];
-
-              final subjectName = subjectCode.toUpperCase() == "CO102"
-                  ? "Programming Fundamentals"
-                  : subjectData['subject_name'] ?? subjectCode;
-
-              final int test1 =
-                  (subjectData['class_tests']?['test1'] as num?)?.toInt() ?? 0;
-              final int test2 =
-                  (subjectData['class_tests']?['test2'] as num?)?.toInt() ?? 0;
-              final int classTest = test1 + test2;
-
-              final int midSem = (subjectData['mid_sem'] as num?)?.toInt() ?? 0;
-              final int endSem = (subjectData['end_sem'] as num?)?.toInt() ?? 0;
-
-              final subjectGpa = subjectData['gpa'];
-              final subjectGrade = subjectData['grade'];
-
-              return SubjectCard(
-                subjectName: subjectName,
-                code: subjectCode,
-                classTest: classTest,
-                midSem: midSem,
-                endSem: endSem,
-                subjectGpa: subjectGpa,
-                subjectGrade: subjectGrade,
-              );
-            },
-          ),
+        actions: [
+          if (availableSemesters.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  value: selectedSemester,
+                  icon: Icon(Icons.arrow_drop_down, color: theme.colorScheme.onPrimary),
+                  dropdownColor: theme.colorScheme.primary,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onPrimary),
+                  onChanged: (int? newValue) {
+                    if (newValue != null && newValue != selectedSemester) {
+                      setState(() => selectedSemester = newValue);
+                      _loadSemesterData(newValue);
+                    }
+                  },
+                  items: availableSemesters.map((int value) {
+                    return DropdownMenuItem<int>(
+                      value: value,
+                      child: Text("Semester $value"),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
         ],
       ),
+      body: _buildBody(theme),
     );
   }
-}
 
-class PerformanceCard extends StatelessWidget {
-  final double cgpa;
-  const PerformanceCard({super.key, required this.cgpa});
+  Widget _buildBody(ThemeData theme) {
+    if (isLoading) return _buildLoadingState();
+    if (subjectsData.isEmpty) return _buildEmptyState(theme);
 
-  @override
-  Widget build(BuildContext context) {
-    final progress = (cgpa / 10).clamp(0.0, 1.0);
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        _buildPerformanceSummaryCard(theme),
+        const SizedBox(height: 16),
+        ...subjectsData.entries.map((entry) {
+          final subjectCode = entry.key;
+          final subjectData = entry.value;
+
+          return _buildSubjectCard(
+            theme: theme,
+            subjectCode: subjectCode,
+            subjectData: subjectData,
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildPerformanceSummaryCard(ThemeData theme) {
+    final cgpa = performanceData?['cgpa']?.toDouble() ?? 0.0;
+    final sgpa = performanceData?['sgpa']?.toDouble() ?? 0.0;
+    final progress = (sgpa / 10).clamp(0.0, 1.0);
 
     return Card(
-      elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
+        child: Row(
           children: [
-            const Text(
-              "Current Semester",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Current Semester", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  _buildPerformanceRow(theme, "CGPA", cgpa.toStringAsFixed(2)),
+                  _buildPerformanceRow(theme, "SGPA", sgpa.toStringAsFixed(2)),
+                  _buildPerformanceRow(theme, "University Rank", "#${performanceData?['universityRank'] ?? 'N/A'}"),
+                  _buildPerformanceRow(theme, "Branch Rank", "#${performanceData?['branchRank'] ?? 'N/A'}"),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(width: 16),
             CircularPercentIndicator(
-              radius: 50.0,
+              radius: MediaQuery.of(context).size.width * 0.12,
               lineWidth: 6,
               percent: progress,
               center: Text(
-                "${cgpa.toStringAsFixed(1)} SGPA",
-                style:
-                const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                "${sgpa.toStringAsFixed(1)} SGPA",
+                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
               ),
-              progressColor: Colors.blue,
-              backgroundColor: Colors.grey[300]!,
+              progressColor: theme.colorScheme.primary,
+              backgroundColor: theme.colorScheme.surfaceVariant,
               circularStrokeCap: CircularStrokeCap.round,
             ),
           ],
@@ -130,77 +202,64 @@ class PerformanceCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class SubjectCard extends StatelessWidget {
-  final String subjectName;
-  final String code;
-  final int classTest;
-  final int midSem;
-  final int endSem;
-  final dynamic subjectGpa;
-  final dynamic subjectGrade;
+  Widget _buildSubjectCard({
+    required ThemeData theme,
+    required String subjectCode,
+    required Map<String, dynamic> subjectData,
+  }) {
+    final ct1 = subjectData['ct1'] as int? ?? 0;
+    final ct2 = subjectData['ct2'] as int? ?? 0;
+    final midSem = subjectData['midSem'] as int? ?? 0;
+    final endSem = subjectData['endSem'] as int? ?? 0;
 
-  const SubjectCard({
-    super.key,
-    required this.subjectName,
-    required this.code,
-    required this.classTest,
-    required this.midSem,
-    required this.endSem,
-    required this.subjectGpa,
-    required this.subjectGrade,
-  });
-
-  @override
-  Widget build(BuildContext context) {
     return Card(
-      elevation: 0,
-      margin: const EdgeInsets.symmetric(vertical: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 3,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // First row: Subject Name and GPA
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(subjectName,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text(code, style: const TextStyle(color: Colors.grey)),
-                  ],
+                Flexible(
+                  child: Text(
+                    subjectData['subjectName'] ?? subjectCode,
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      subjectGpa != null ? "GPA: $subjectGpa" : "GPA: N/A",
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subjectGrade != null
-                          ? "Grade: $subjectGrade"
-                          : "Grade: N/A",
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                  ],
+                Text(
+                  "GPA: ${subjectData['gpa']?.toStringAsFixed(1) ?? 'N/A'}",
+                  style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Second row: Subject Code and Grade
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    subjectCode,
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                  ),
+                ),
+                Text(
+                  "Grade: ${subjectData['grade'] ?? 'N/A'}",
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                ScoreCard("Class Test", classTest, "Class Test"),
-                ScoreCard("Mid-Sem", midSem, "Mid Sem"),
-                ScoreCard("End-Sem", endSem, "End Sem"),
+                _buildScoreCard(theme, "Class Test", ct1 + ct2, Icons.edit),
+                _buildScoreCard(theme, "Mid-Sem", midSem, Icons.book),
+                _buildScoreCard(theme, "End-Sem", endSem, Icons.school),
               ],
             ),
           ],
@@ -208,47 +267,59 @@ class SubjectCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class ScoreCard extends StatelessWidget {
-  final String title;
-  final int score;
-  final String name;
 
-  const ScoreCard(this.title, this.score, this.name, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildScoreCard(ThemeData theme, String title, int score, IconData icon) {
     return Expanded(
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(6.0),
         child: Card(
           elevation: 0,
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           child: Padding(
-            padding: const EdgeInsets.all(5.0),
+            padding: const EdgeInsets.all(6.0),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  title == "Class Test"
-                      ? Icons.edit
-                      : title == "Mid-Sem"
-                      ? Icons.book
-                      : Icons.school,
-                  size: 24,
-                ),
-                const SizedBox(height: 5),
-                Text(name,
-                    style: const TextStyle(color: Colors.grey, fontSize: 15)),
-                const SizedBox(height: 5),
-                Text("$score",
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Icon(icon, size: 22, color: theme.colorScheme.primary),
+                const SizedBox(height: 4),
+                Text(title, style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor), textAlign: TextAlign.center),
+                const SizedBox(height: 4),
+                Text("$score", style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPerformanceRow(ThemeData theme, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3.0),
+      child: Row(
+        children: [
+          Text("$label: ", style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+          Flexible(child: Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(child: CircularProgressIndicator());
+  }
+
+  Widget _buildEmptyState(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.school_outlined, size: 64, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(height: 16),
+          Text("No academic records found", style: theme.textTheme.titleMedium?.copyWith(color: theme.hintColor)),
+          const SizedBox(height: 8),
+          TextButton(onPressed: _fetchInitialData, child: const Text("Retry")),
+        ],
       ),
     );
   }

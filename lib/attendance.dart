@@ -243,12 +243,13 @@ class SubjectCard extends StatelessWidget {
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 10),
-            LinearProgressIndicator(
-              value: attendancePercent,
-              backgroundColor: Colors.grey.shade300,
-              color: attendancePercent < 0.75 ? Colors.orange : Colors.green,
-              minHeight: 8,
-            ),
+        LinearProgressIndicator(
+                value: attendancePercent,
+                backgroundColor: Colors.grey.shade300,
+                color: attendancePercent < 0.75 ? Colors.orange : Colors.green,
+                borderRadius: BorderRadius.circular(8.0),
+                minHeight: 8,
+              ),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,

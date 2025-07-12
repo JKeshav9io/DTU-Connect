@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dtu_connect_2/schedule.dart';
 import 'package:dtu_connect_2/fecthing_data.dart';
 import 'package:dtu_connect_2/alerts.dart';
 import 'package:dtu_connect_2/assignment.dart';
@@ -16,25 +17,30 @@ void main() {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
+      title: 'DTU Connect',
       debugShowCheckedModeBanner: false,
-      home: Dashboard(),
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        brightness: Brightness.light,
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+      ),
+      home: const Dashboard(),
     );
   }
 }
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
-
   @override
   State<Dashboard> createState() => _DashboardState();
 }
 
 class _DashboardState extends State<Dashboard> {
-  Map<String, dynamic>? studentData;
   int _selectedIndex = 0;
   bool isLoading = true;
 
@@ -42,7 +48,6 @@ class _DashboardState extends State<Dashboard> {
   void initState() {
     super.initState();
     loadStudentData();
-
   }
 
   Future<void> loadStudentData() async {
@@ -65,7 +70,7 @@ class _DashboardState extends State<Dashboard> {
     }
     return [
       const HomeScreen(),
-      const AcademicPerformanceScreen(),
+      const AcademicPerformanceScreen(studentId: '24_B05_027'),
       const EventsScreen(),
       const AlertsScreen(),
       ProfilePage(studentData: studentData!),
@@ -80,24 +85,24 @@ class _DashboardState extends State<Dashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: theme.colorScheme.background,
       appBar: _selectedIndex == 0
           ? AppBar(
-        title: const Text(
+        title: Text(
           'Welcome, Keshav Jha!',
-          style: TextStyle(
-            color: Colors.black,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.onPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black),
+        backgroundColor: theme.colorScheme.primary,
+        iconTheme: IconThemeData(color: theme.colorScheme.onPrimary),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.account_circle),
           onPressed: () {
-            print("Profile: $studentData");
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => ProfilePage(studentData: studentData!)),
@@ -108,19 +113,13 @@ class _DashboardState extends State<Dashboard> {
           IconButton(
             icon: const Icon(Icons.admin_panel_settings),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const CrPanel()),
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const CrPanel()));
             },
           ),
           IconButton(
             icon: const Icon(Icons.notifications),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AlertsScreen()),
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AlertsScreen()));
             },
           ),
         ],
@@ -129,8 +128,8 @@ class _DashboardState extends State<Dashboard> {
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: theme.colorScheme.primary,
+        unselectedItemColor: theme.hintColor,
         showUnselectedLabels: true,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -148,9 +147,9 @@ class _DashboardState extends State<Dashboard> {
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -160,6 +159,7 @@ class HomeScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: _infoCard(
+                  context,
                   title: "Today's Attendance",
                   value: "85%",
                   progress: 0.85,
@@ -168,43 +168,44 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _nextClassCard(
-                  time: "04:30 PM",
-                  subject: "Mathematics II",
-                ),
+                child: _nextClassCard(context, time: "04:30 PM", subject: "Mathematics II"),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          const Text("Quick Actions", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text("Quick Actions", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           GridView.count(
             shrinkWrap: true,
-            crossAxisCount: 4,
+            crossAxisCount: MediaQuery.of(context).size.width > 600 ? 6 : 4,
             physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
             children: [
-              _quickActionButton(Icons.check, "Attendance", () {
-                print(studentData);
-                Navigator.push(context, MaterialPageRoute(builder: (context) =>Attendance(studentData: studentData!),));
+              _quickActionButton(context, Icons.check, "Attendance", () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => Attendance(studentData: studentData!)));
               }),
-              _quickActionButton(Icons.assignment, "Assignment", () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const AssignmentScreen()));
+              _quickActionButton(context, Icons.assignment, "Assignment", () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const AssignmentScreen()));
               }),
-              _quickActionButton(Icons.schedule, "Schedule", () {}),
-              _quickActionButton(Icons.event, "Events", () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const EventsScreen()));
+              _quickActionButton(context, Icons.schedule, "Schedule", () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const TimetableScreen()));
+              }),
+              _quickActionButton(context, Icons.event, "Events", () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const EventsScreen()));
               }),
             ],
           ),
           const SizedBox(height: 20),
-          const Text("Upcoming Assignments", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text("Upcoming Assignments", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          _assignmentCard(title: "Programming Fundamentals", due: "Tomorrow, 11:59 PM"),
-          _assignmentCard(title: "Discrete Structures", due: "20 March, 11:59 PM"),
+          _assignmentCard(context, title: "Programming Fundamentals", due: "Tomorrow, 11:59 PM"),
+          _assignmentCard(context, title: "Discrete Structures", due: "20 March, 11:59 PM"),
           const SizedBox(height: 20),
-          const Text("Campus Events", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text("Campus Events", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           _eventCard(
+            context,
             imageUrl: "Assets/even.jpg",
             title: "Tech Innovation Summit",
             date: "March 20, 2:00 PM - B.R. Auditorium",
@@ -215,30 +216,32 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-Widget _infoCard({required String title, required String value, required double progress, required Color valueColor}) {
+Widget _infoCard(BuildContext context,
+    {required String title, required String value, required double progress, required Color valueColor}) {
+  final theme = Theme.of(context);
   return Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: theme.cardColor,
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.grey.shade300),
+      border: Border.all(color: theme.dividerColor),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(title, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 5),
         Row(
           children: [
             Expanded(
               child: LinearProgressIndicator(
                 value: progress,
-                backgroundColor: Colors.grey.shade300,
+                backgroundColor: theme.dividerColor,
                 color: valueColor,
               ),
             ),
             const SizedBox(width: 5),
-            Text(value, style: TextStyle(color: valueColor, fontWeight: FontWeight.bold)),
+            Text(value, style: theme.textTheme.bodyMedium?.copyWith(color: valueColor, fontWeight: FontWeight.bold)),
           ],
         ),
       ],
@@ -246,27 +249,29 @@ Widget _infoCard({required String title, required String value, required double 
   );
 }
 
-Widget _nextClassCard({required String time, required String subject}) {
+Widget _nextClassCard(BuildContext context, {required String time, required String subject}) {
+  final theme = Theme.of(context);
   return Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: theme.cardColor,
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.grey.shade300),
+      border: Border.all(color: theme.dividerColor),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Next Class", style: TextStyle(fontWeight: FontWeight.bold)),
+        Text("Next Class", style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 5),
-        Text(time, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        Text(subject, style: const TextStyle(color: Colors.grey)),
+        Text(time, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Text(subject, style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
       ],
     ),
   );
 }
 
-Widget _quickActionButton(IconData icon, String label, VoidCallback onTap) {
+Widget _quickActionButton(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+  final theme = Theme.of(context);
   return GestureDetector(
     onTap: onTap,
     child: Column(
@@ -274,29 +279,30 @@ Widget _quickActionButton(IconData icon, String label, VoidCallback onTap) {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: theme.cardColor,
             borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.dividerColor),
           ),
-          child: Icon(icon, size: 45, color: Colors.black),
+          child: Icon(icon, size: 30, color: theme.iconTheme.color),
         ),
         const SizedBox(height: 5),
-        Text(label, style: const TextStyle(fontSize: 15)),
+        Text(label, style: theme.textTheme.bodySmall),
       ],
     ),
   );
 }
 
-Widget _assignmentCard({required String title, required String due}) {
+Widget _assignmentCard(BuildContext context, {required String title, required String due}) {
+  final theme = Theme.of(context);
   return Card(
-    elevation: 1,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     child: ListTile(
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text("Due: $due"),
+      title: Text(title, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+      subtitle: Text("Due: $due", style: theme.textTheme.bodySmall),
       trailing: ElevatedButton(
         onPressed: () {},
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
+          backgroundColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: const Text("Submit", style: TextStyle(color: Colors.white)),
@@ -305,9 +311,9 @@ Widget _assignmentCard({required String title, required String due}) {
   );
 }
 
-Widget _eventCard({required String imageUrl, required String title, required String date}) {
+Widget _eventCard(BuildContext context, {required String imageUrl, required String title, required String date}) {
+  final theme = Theme.of(context);
   return Card(
-    elevation: 2,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,9 +327,9 @@ Widget _eventCard({required String imageUrl, required String title, required Str
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(title, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 5),
-              Text(date, style: const TextStyle(color: Colors.grey)),
+              Text(date, style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
             ],
           ),
         ),
